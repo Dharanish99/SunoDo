@@ -59,4 +59,11 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // MediaPipe Tasks GenAI (LLM Inference API) — the runtime behind both
+    // PacketExtractor tiers. Version picked as a reasonable current release;
+    // bump it if Android Studio's dependency check suggests a newer one —
+    // this couldn't be verified against Google's live Maven index from the
+    // sandbox this was written in (see the root README's constraints section).
+    implementation("com.google.mediapipe:tasks-genai:0.10.24")
 }

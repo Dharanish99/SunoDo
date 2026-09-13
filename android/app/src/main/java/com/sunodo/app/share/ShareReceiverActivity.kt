@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.IntentCompat
+import com.sunodo.app.pipeline.VoiceInput
 import com.sunodo.app.ui.SAMPLE_TRANSCRIPT
 import com.sunodo.app.ui.SunoDoScreen
 import com.sunodo.app.ui.theme.SunoDoTheme
@@ -35,12 +36,13 @@ class ShareReceiverActivity : ComponentActivity() {
             null
         }
         val displayName = audioUri?.let { queryDisplayName(it) }
+        val autoStartInput = audioUri?.let { VoiceInput.Audio(it) } ?: VoiceInput.Transcript(SAMPLE_TRANSCRIPT)
 
         setContent {
             SunoDoTheme {
                 SunoDoScreen(
                     receivedLabel = displayName?.let { "Received: $it" } ?: "Received a voice note",
-                    autoStartTranscript = SAMPLE_TRANSCRIPT,
+                    autoStartInput = autoStartInput,
                     onPacketAction = {
                         Toast.makeText(
                             this,

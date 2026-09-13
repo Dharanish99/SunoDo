@@ -5,47 +5,29 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 
 /**
- * Stage 2's placeholder for the real model call. It ignores the actual
- * transcript and returns the same worked example from docs/blueprint.md §3.2,
- * with dates resolved relative to today — enough to exercise the Room
- * round-trip and the full Compose UI without a model in the loop yet.
- *
- * Stage 3 replaces this with two real implementations (one per device tier)
- * behind the same PacketExtractor interface; nothing above this file changes.
+ * Kept from Stage 2, updated to the VoiceInput-based interface. Also used
+ * by PacketExtractorFactory as a graceful fallback when a tier's model file
+ * isn't present on the device yet — `tier` lets that fallback still show
+ * the real detected tier in the UI rather than a hardcoded one.
  */
-class StubPacketExtractor : PacketExtractor {
-    override suspend fun extract(transcript: String, sourceApp: String, durationSec: Int): ExtractionResult {
-        delay(1400) // stands in for on-device inference latency
+class StubPacketExtractor(private val tier: DeviceTier = DeviceTier.HIGH) : PacketExtractor {
+    override suspend fun extract(input: VoiceInput, sourceApp: String, durationSec: Int): ExtractionResult {
+        delay(1400)
         val today = LocalDate.now().toEpochDay()
         return ExtractionResult(
             tldr = "Report due Tuesday, client's budget still unconfirmed, Thursday sync moved to 4pm.",
             packets = listOf(
+                ExtractedPacket(PacketType.TASK, "Send the Q3 report", today + 3, null),
                 ExtractedPacket(
-                    type = PacketType.TASK,
-                    content = "Send the Q3 report",
-                    dueEpochDay = today + 3,
-                    replySuggestion = null
+                    PacketType.QUESTION,
+                    "Confirm the client's revised budget",
+                    null,
+                    "Checking on the client's revised budget now, will confirm shortly."
                 ),
-                ExtractedPacket(
-                    type = PacketType.QUESTION,
-                    content = "Confirm the client's revised budget",
-                    dueEpochDay = null,
-                    replySuggestion = "Checking on the client's revised budget now, will confirm shortly."
-                ),
-                ExtractedPacket(
-                    type = PacketType.DECISION,
-                    content = "Thursday sync moved from 11am to 4pm",
-                    dueEpochDay = today + 5,
-                    replySuggestion = null
-                ),
-                ExtractedPacket(
-                    type = PacketType.INFO,
-                    content = "New vendor contact shared: Ramesh, Chennai",
-                    dueEpochDay = null,
-                    replySuggestion = null
-                )
+                ExtractedPacket(PacketType.DECISION, "Thursday sync moved from 11am to 4pm", today + 5, null),
+                ExtractedPacket(PacketType.INFO, "New vendor contact shared: Ramesh, Chennai", null, null)
             ),
-            deviceTier = DeviceTier.HIGH
+            deviceTier = tier
         )
     }
 }

@@ -10,32 +10,48 @@ import com.sunodo.app.data.Packet
 import com.sunodo.app.data.PacketDao
 import com.sunodo.app.data.SunoDoDatabase
 import com.sunodo.app.data.VoiceNote
+import com.sunodo.app.pipeline.AudioPreprocessor
+import com.sunodo.app.pipeline.DeviceTier
+import com.sunodo.app.pipeline.DeviceTierDetector
 import com.sunodo.app.pipeline.PacketExtractor
-import com.sunodo.app.pipeline.StubPacketExtractor
+import com.sunodo.app.pipeline.PacketExtractorFactory
+import com.sunodo.app.pipeline.VoiceInput
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * Orchestrates one voice note through the pipeline and owns the screen state.
- * The extraction step is swappable (see PacketExtractor) — everything either
- * side of it, including the two real Room writes below, is not a stub.
+ * Orchestrates one voice note through the pipeline and owns the screen
+ * state. `tier` is resolved once (DeviceTierDetector, cached) and shown in
+ * ProcessingScreen immediately — it's a device capability check, not a
+ * model output, so it's known before inference starts, not after.
  */
 class VoiceNoteViewModel(
+    private val appContext: Context,
     private val packetDao: PacketDao,
-    private val extractor: PacketExtractor = StubPacketExtractor()
+    private val extractor: PacketExtractor,
+    private val tier: DeviceTier
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    fun processVoiceNote(transcript: String, sourceApp: String = "WhatsApp", durationSec: Int = 0) {
+    fun process(input: VoiceInput, sourceApp: String = "WhatsApp") {
         viewModelScope.launch {
-            _uiState.value = UiState.Processing(deviceTier = null)
+            _uiState.value = UiState.Processing(deviceTier = tier)
             try {
-                val result = extractor.extract(transcript, sourceApp, durationSec)
+                val durationSec = when (input) {
+                    is VoiceInput.Audio -> withContext(Dispatchers.IO) {
+                        AudioPreprocessor.getDurationMs(appContext, input.uri) / 1000
+                    }.toInt()
+                    is VoiceInput.Transcript -> 0
+                }
+
+                val result = extractor.extract(input, sourceApp, durationSec)
 
                 val voiceNote = VoiceNote(
                     sourceApp = sourceApp,
@@ -55,8 +71,7 @@ class VoiceNoteViewModel(
                 }
 
                 // Real round-trip through Room: write, then read back what was
-                // actually persisted (so ids in the UI are real row ids, not
-                // guesses), not just holding the in-memory result in state.
+                // actually persisted, not just holding the in-memory result in state.
                 val voiceNoteId = packetDao.insertVoiceNoteWithPackets(voiceNote, packetEntities)
                 val savedPackets = packetDao.observePackets(voiceNoteId).first()
 
@@ -90,7 +105,13 @@ class VoiceNoteViewModel(
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer<VoiceNoteViewModel> {
-                VoiceNoteViewModel(SunoDoDatabase.getInstance(context.applicationContext).packetDao())
+                val appContext = context.applicationContext
+                VoiceNoteViewModel(
+                    appContext = appContext,
+                    packetDao = SunoDoDatabase.getInstance(appContext).packetDao(),
+                    extractor = PacketExtractorFactory.create(appContext),
+                    tier = DeviceTierDetector.detect(appContext)
+                )
             }
         }
     }

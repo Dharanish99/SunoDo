@@ -18,22 +18,34 @@ The real Android Studio project. This is source code meant to be opened and buil
 | Room schema — `VoiceNote` + `Packet` entities, `PacketDao` (including a transactional insert), `SunoDoDatabase` | Real, complete — the ViewModel does a genuine write-then-read round trip through it, not just an in-memory model |
 | Compose UI — theme (shared color tokens with `demo/sunodo_demo.html`), `HomeScreen`, `ProcessingScreen` (with device-tier badge), `ActionCardScreen`, `PacketCard`, `ErrorScreen` | Real, complete |
 | `ShareReceiverActivity` — reads the shared audio URI and its display name via the transient URI grant on the incoming Intent | Real, complete |
-| Packet extraction (`PacketExtractor` / `StubPacketExtractor`) | **Stubbed.** Returns the same canned example from `docs/blueprint.md` §3.2 after an artificial delay, regardless of what's actually in the shared audio. This is Stage 3's job. |
-| Device-tier capability check (`docs/blueprint.md` §3.4) | Not yet implemented — `ProcessingScreen` can display a tier badge, but nothing sets a real one yet |
+| `DeviceTierDetector` (§3.4's RAM check, cached) | Real, complete — no model file needed for this one |
+| `AudioPreprocessor.chunkBoundaries` | Real, complete, and actually verified — see "What was actually verified" |
+| `AudioPreprocessor.getDurationMs` / `decodeToPcm16` | Real Android media APIs, standard patterns, **not exercised on a device** |
+| `HighTierPacketExtractor` / `BudgetTierPacketExtractor` / `LlmPacketExtractor` (MediaPipe LLM Inference) | Text-generation calls written with reasonable confidence against MediaPipe's documented API shape. The audio-ingestion call is a flagged **TODO(verify)** — see "Open questions" below |
+| `PacketExtractorFactory` | Real — picks a tier, falls back to the Stage 2 stub if that tier's model file isn't on the device (model files are too large to commit here) |
 | `OSActionBridge` (native Calendar/Reminder/Reply intents) | Not yet implemented — tapping a card's action button currently just shows a Toast explaining it arrives in Stage 4 |
 
-Sharing a real voice note from WhatsApp to SunoDo today will genuinely launch `ShareReceiverActivity`, genuinely read the file's name, and genuinely render a TL;DR and cards through Room — the cards just won't reflect that specific audio's real content until Stage 3.
+Sharing a real voice note from WhatsApp to SunoDo today will genuinely launch `ShareReceiverActivity`, genuinely read the file's name and duration, genuinely run it through `DeviceTierDetector`, and land on `PacketExtractorFactory` — which, until a real `.task` model file is pushed onto the device (see `ModelPaths.kt`), gracefully falls back to the stub rather than crashing.
+
+## Open questions from building Stage 3
+
+Two things surfaced while wiring in the real model that are worth flagging plainly rather than papering over, in the same spirit as the blueprint's own §3.4 RAM-constraint analysis:
+
+1. **MediaPipe's exact audio-ingestion API for Gemma-3n wasn't confirmed.** `LlmPacketExtractor.extractFromAudio` calls `session.addAudioClip(pcm)` — the surrounding text-generation calls (`LlmInference.createFromOptions`, `addQueryChunk`, `generateResponse`) match MediaPipe's stable documented shape with reasonable confidence, but this specific method name is a best-effort placeholder. It's marked `TODO(verify)` in the code. Check it against MediaPipe's current Tasks GenAI docs or the Google AI Edge Gallery reference app before relying on it — this is the single highest-uncertainty line in the whole prototype, which tracks: it's also the newest capability in the stack the blueprint itself flags as already shifting toward LiteRT-LM.
+
+2. **The budget-tier path's original two-step design (ML Kit STT, then Gemma 3 1B structuring) assumes an on-device, file-based speech-to-text API that doesn't appear to exist as a public, documented offering.** Both ML Kit and Android's platform `SpeechRecognizer` are built around live microphone dictation (`SpeechRecognizer.startListening()` drives its own `AudioRecord` session) — there's no `recognizeFile(uri)` entry point for an already-recorded voice note. Since the audio SunoDo receives is always a file, never something spoken live into the app, that's a real mismatch with the original plan. `BudgetTierPacketExtractor` currently resolves this by pointing the same audio-native MediaPipe mechanism used by the high tier at a smaller model checkpoint instead — collapsing "transcribe, then structure" into one step for both tiers, differing only in which model file they load. Two ways to validate this further on a real device: (a) confirm whether `addAudioClip` (or whatever the real method turns out to be) performs acceptably on a smaller/quantized checkpoint at budget-device speeds, or (b) bundle a dedicated small file-based ASR model (e.g. a quantized on-device Whisper variant via MediaPipe's Audio Task API) as a true separate transcription step if a smaller audio-native LLM checkpoint turns out not to exist or not to fit budget-device RAM.
 
 ## What was actually verified
 
-Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose classpath available in this sandbox) was run across every `.kt` file in the module. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), which the compiler flagged as reaching end-of-file inside an open comment. Fixed in `share/ShareReceiverActivity.kt`. Every remaining compiler error was cross-checked and traced to a missing Android/AndroidX/Room/Compose symbol (i.e. classpath noise), not a defect in this code — see the Stage 2 commit message for the exact check.
+Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose/MediaPipe classpath available in this sandbox) was run across every `.kt` file in the module, twice — once after Stage 2, once after Stage 3's changes. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one, in Stage 2: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), fixed in `share/ShareReceiverActivity.kt`. Stage 3 additionally pulled `AudioPreprocessor.chunkBoundaries` out into a standalone file with no Android dependency, compiled it, and ran it through six cases (zero duration, sub-chunk, exact-chunk-boundary, one-millisecond-over, multi-chunk, uneven-remainder) checking full coverage, no gaps, and no oversized chunk — all six passed before the logic was copied into the real file unchanged. Every other compiler error in both passes was traced to a missing Android/AndroidX/Room/Compose/MediaPipe symbol (classpath noise), not a defect in this code.
 
 ## Structure
 
 ```
 app/src/main/java/com/sunodo/app/
   data/          Room entities, DAO, database, type converters
-  pipeline/      PacketExtractor interface + Stage 2's stub implementation
+  pipeline/      VoiceInput, PacketExtractor + tiers (Stub/High/Budget), DeviceTierDetector,
+                 AudioPreprocessor, PacketPrompt, PacketJsonParser, ModelPaths, PacketExtractorFactory
   viewmodel/     UiState + VoiceNoteViewModel (orchestrates pipeline -> Room -> UI state)
   ui/            Compose theme + screens (Home, Processing, ActionCard, PacketCard, Error)
   share/         ShareReceiverActivity — the Share-target entry point
