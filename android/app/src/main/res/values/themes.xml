@@ -1,0 +1,12 @@
+<resources>
+    <!--
+      Compose owns all real UI theming (see ui/theme/Theme.kt). This XML theme
+      only needs to cover what shows before Compose content is set: the window
+      background and status bar, so there's no flash of a light default theme.
+    -->
+    <style name="Theme.SunoDo" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:statusBarColor">@color/ink</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

@@ -27,7 +27,7 @@ Open [`demo/sunodo_demo.html`](demo/sunodo_demo.html) in a browser. Pick one of 
 ## Stage roadmap
 
 - [x] **Stage 1** — repo scaffold, docs, and the Track B live demo
-- [ ] **Stage 2** — Android project skeleton: manifest, Share-target registration, Room schema, Compose card UI (no model integration yet, packets stubbed)
+- [x] **Stage 2** — Android project skeleton: manifest, Share-target registration, Room schema, Compose card UI (no model integration yet, packets stubbed) — see [`android/README.md`](android/README.md)
 - [ ] **Stage 3** — on-device model integration: MediaPipe LLM Inference for the high-tier path, ML Kit + Gemma 3 1B for the budget-tier path, device-tier capability check
 - [ ] **Stage 4** — `OSActionBridge`: native Calendar/Reminder/Reply intents wired to real packet data
 - [ ] **Stage 5** — polish pass: empty states, error states, swipe-to-dismiss, README per module

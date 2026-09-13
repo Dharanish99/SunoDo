@@ -1,0 +1,12 @@
+<!-- Placeholder mark: a waveform resolving into discrete bars, echoing the
+     ribosome/packet metaphor from the design doc. Swap for real brand art later. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#14151C" android:pathData="M22,40L32,40L32,68L22,68Z" />
+    <path android:fillColor="#14151C" android:pathData="M40,31L50,31L50,77L40,77Z" />
+    <path android:fillColor="#14151C" android:pathData="M58,24L68,24L68,84L58,84Z" />
+    <path android:fillColor="#14151C" android:pathData="M76,36L86,36L86,72L76,72Z" />
+</vector>
