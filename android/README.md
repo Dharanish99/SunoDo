@@ -22,10 +22,25 @@ The real Android Studio project. This is source code meant to be opened and buil
 | `AudioPreprocessor.chunkBoundaries` | Real, complete, and actually verified — see "What was actually verified" |
 | `AudioPreprocessor.getDurationMs` / `decodeToPcm16` | Real Android media APIs, standard patterns, **not exercised on a device** |
 | `HighTierPacketExtractor` / `BudgetTierPacketExtractor` / `LlmPacketExtractor` (MediaPipe LLM Inference) | Text-generation calls written with reasonable confidence against MediaPipe's documented API shape. The audio-ingestion call is a flagged **TODO(verify)** — see "Open questions" below |
-| `PacketExtractorFactory` | Real — picks a tier, falls back to the Stage 2 stub if that tier's model file isn't on the device (model files are too large to commit here) |
+| `PacketExtractorFactory` | Real — picks a tier, falls back to the Stage 2 stub if that tier's model file isn't on the device (model files are too large to commit here). Whether it fell back is now surfaced in the UI (`ModelStatusBanner`) — see the note below the table |
 | `OSActionBridge` / `PacketActionHandler` (native Calendar/Reminder/Reply intents) | Real, complete — `ACTION_INSERT` opens the calendar app's own "new event" screen (no calendar permission needed), `ACTION_SEND` hands reminders and replies to whatever app the user picks via the system chooser, with a clipboard-copy fallback if nothing on the device can handle either intent |
 
 Sharing a real voice note from WhatsApp to SunoDo today will genuinely launch `ShareReceiverActivity`, genuinely read the file's name and duration, genuinely run it through `DeviceTierDetector`, land on `PacketExtractorFactory` — which, until a real `.task` model file is pushed onto the device (see `ModelPaths.kt`), gracefully falls back to the stub rather than crashing — and every card's action button now fires a real native intent, not a placeholder.
+
+**A note on that fallback, from actually running this on a device:** the device-tier badge on `ProcessingScreen` is a real capability check and will correctly say something like "High-tier device · Gemma-3n E2B" even when there's no model file installed — that badge and the extraction result are two independent things. Without a visible signal, that looks exactly like a working demo instead of a fallback, which is confusing and was a real gap, not a documentation footnote. `ModelStatusBanner` now shows on both `ProcessingScreen` and `ActionCardScreen` whenever `PacketExtractorFactory.create()` returns `usingRealModel = false`, saying plainly that the output is the Stage 2 stub. If you're seeing that banner, the app is working correctly — it just doesn't have a multi-gigabyte model file to load, which nothing in this repo can provide (see "Getting a real extraction running" below for what that actually takes).
+
+## Getting a real extraction running
+
+`ModelStatusBanner` will keep showing until an actual `.task` model file is on the device at the path `ModelPaths.kt` expects. Roughly, that takes:
+
+1. Get a Gemma-3n E2B (high tier) or Gemma 3 1B (budget tier) `.task` checkpoint, int4-quantized, from Kaggle Models or Hugging Face — both require accepting Gemma's license first, and the file is large (multiple GB for the E2B checkpoint).
+2. Push it to the path `ModelPaths.kt` reads from:
+   ```
+   adb push gemma-3n-e2b-it-int4.task /sdcard/Android/data/com.sunodo.app/files/models/gemma-3n-e2b-it-int4.task
+   ```
+3. Relaunch the app. `PacketExtractorFactory` checks for that file on every launch — no rebuild needed, just the push.
+
+Even with the file in place, remember the "Open questions" section right below: the audio-ingestion call in `LlmPacketExtractor` is an unverified `TODO(verify)`, so getting a model file loading and getting a correct extraction back from it are two separate hurdles. If step 3 throws rather than silently falling back, that's the most likely place to look first.
 
 ## Open questions from building Stage 3
 
@@ -37,7 +52,7 @@ Two things surfaced while wiring in the real model that are worth flagging plain
 
 ## What was actually verified
 
-Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose/MediaPipe classpath available in this sandbox) was run across every `.kt` file in the module after each stage. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one, in Stage 2: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), fixed in `share/ShareReceiverActivity.kt`. Stage 3 additionally pulled `AudioPreprocessor.chunkBoundaries` out into a standalone file with no Android dependency, compiled it, and ran it through six cases (zero duration, sub-chunk, exact-chunk-boundary, one-millisecond-over, multi-chunk, uneven-remainder) checking full coverage, no gaps, and no oversized chunk — all six passed before the logic was copied into the real file unchanged. Stages 4 and 5 re-ran the same check each time; every remaining error in every pass was individually traced to a missing Android/AndroidX/Room/Compose/MediaPipe symbol, not a defect in this code.
+Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose/MediaPipe classpath available in this sandbox) was run across every `.kt` file in the module after each stage, and again after the `usingRealModel`/`ModelStatusBanner` fix described above. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one, in Stage 2: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), fixed in `share/ShareReceiverActivity.kt`. Stage 3 additionally pulled `AudioPreprocessor.chunkBoundaries` out into a standalone file with no Android dependency, compiled it, and ran it through six cases (zero duration, sub-chunk, exact-chunk-boundary, one-millisecond-over, multi-chunk, uneven-remainder) checking full coverage, no gaps, and no oversized chunk — all six passed before the logic was copied into the real file unchanged. Every other pass, including this fix, found only errors traced to a missing Android/AndroidX/Room/Compose/MediaPipe symbol, not a defect in this code.
 
 ## Structure
 

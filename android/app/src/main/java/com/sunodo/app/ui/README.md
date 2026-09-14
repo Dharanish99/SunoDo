@@ -14,3 +14,8 @@ care which Activity is hosting it.
   everyone dismisses things the same way.
 - `ErrorScreen` — shown both for extraction failures and for the
   "share intent had no readable audio" case (see `share/README.md`).
+- `ModelStatusBanner` — shown on `ProcessingScreen` and `ActionCardScreen`
+  whenever the real model isn't installed on the device, so a real
+  device-tier badge never sits next to fake output with nothing telling
+  the two apart. See the root [`android/README.md`](../../../../../../../../README.md)
+  for the story behind why this exists.

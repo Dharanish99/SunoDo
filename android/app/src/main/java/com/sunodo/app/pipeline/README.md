@@ -17,6 +17,10 @@ TL;DR and a list of packets."
   `ModelPaths`, `PacketExtractorFactory` — the MediaPipe integration. This is
   the least-certain code in the whole project; read the doc comment at the
   top of `LlmPacketExtractor.kt` before trusting the audio-ingestion call.
+  `PacketExtractorFactory.create` returns an `ExtractorSelection`, not a
+  bare `PacketExtractor` — the `usingRealModel` flag on it is what lets the
+  UI show `ModelStatusBanner` instead of silently running the stub next to
+  a real device-tier badge.
 - `StubPacketExtractor` — Stage 2's placeholder, still used as
   `PacketExtractorFactory`'s graceful fallback when a tier's model file
   isn't on the device.
