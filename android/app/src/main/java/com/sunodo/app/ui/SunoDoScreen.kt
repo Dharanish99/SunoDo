@@ -21,15 +21,19 @@ import com.sunodo.app.viewmodel.VoiceNoteViewModel
 fun SunoDoScreen(
     receivedLabel: String? = null,
     autoStartInput: VoiceInput? = null,
+    autoStartError: String? = null,
     onPacketAction: (Packet) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: VoiceNoteViewModel = viewModel(factory = VoiceNoteViewModel.factory(context))
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(autoStartInput) {
-        if (autoStartInput != null && uiState is UiState.Idle) {
-            viewModel.process(autoStartInput, sourceApp = "WhatsApp")
+    LaunchedEffect(autoStartInput, autoStartError) {
+        if (uiState is UiState.Idle) {
+            when {
+                autoStartError != null -> viewModel.reportError(autoStartError)
+                autoStartInput != null -> viewModel.process(autoStartInput, sourceApp = "WhatsApp")
+            }
         }
     }
 

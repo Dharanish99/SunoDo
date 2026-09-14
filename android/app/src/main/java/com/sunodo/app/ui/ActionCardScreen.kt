@@ -2,6 +2,7 @@ package com.sunodo.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sunodo.app.data.Packet
 import com.sunodo.app.ui.theme.Hairline
@@ -43,12 +46,23 @@ fun ActionCardScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(packets, key = { it.id }) { packet ->
-                PacketCard(packet = packet, onAction = onAction, onDismiss = onDismiss)
+        if (packets.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "All done — nothing else to act on from this note.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextMuted,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(packets, key = { it.id }) { packet ->
+                    PacketCard(packet = packet, onAction = onAction, onDismiss = onDismiss)
+                }
             }
         }
 

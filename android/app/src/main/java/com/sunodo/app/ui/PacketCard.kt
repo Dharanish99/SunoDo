@@ -3,32 +3,38 @@ package com.sunodo.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sunodo.app.data.Packet
 import com.sunodo.app.data.PacketType
 import com.sunodo.app.ui.theme.Coral
+import com.sunodo.app.ui.theme.Ink
 import com.sunodo.app.ui.theme.Marigold
 import com.sunodo.app.ui.theme.Sage
 import com.sunodo.app.ui.theme.Steel
@@ -69,12 +75,23 @@ private fun friendlyDate(epochDay: Long): String {
  * One packet, one accent color, one primary action — deliberately not a
  * generic identical-looking card grid. The left accent bar plus a plain-text
  * kind label carries the type; the action button always states exactly what
- * tapping it does (see actionLabelFor), never a bare icon.
+ * tapping it does (see actionLabelFor). `onAction` fires the real
+ * OSActionBridge intent via PacketActionHandler (Stage 4).
  *
- * The primary action is wired to `onAction` only — actually firing a native
- * Calendar/reply Intent is Stage 4's OSActionBridge; for now the caller can
- * show a placeholder toast so the UI is fully clickable end to end already.
+ * Dismissing works two ways on purpose: swipe, for anyone used to that
+ * pattern, and the explicit × button for anyone who isn't — the same
+ * "don't assume everyone types/gestures the same way" reasoning
+ * docs/blueprint.md applies to voice notes in the first place applies here
+ * too. Both call the same onDismiss.
+ *
+ * SwipeToDismissBox's exact parameter names have shifted across Compose
+ * Material3 releases while the API was experimental; this matches the
+ * shape documented around the compose-bom version pinned in this project's
+ * build.gradle.kts, but — like the MediaPipe integration in pipeline/ —
+ * hasn't been checked against a live Gradle sync from this sandbox, so
+ * verify it if Android Studio's sync flags it.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PacketCard(
     packet: Packet,
@@ -82,10 +99,55 @@ fun PacketCard(
     onDismiss: (Packet) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value != SwipeToDismissBoxValue.Settled) {
+                onDismiss(packet)
+            }
+            true
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier.fillMaxWidth(),
+        backgroundContent = { DismissBackground(dismissState.targetValue) }
+    ) {
+        PacketCardContent(packet = packet, onAction = onAction, onDismiss = onDismiss)
+    }
+}
+
+@Composable
+private fun DismissBackground(targetValue: SwipeToDismissBoxValue) {
+    val (color, alignment) = when (targetValue) {
+        SwipeToDismissBoxValue.StartToEnd -> Coral to Alignment.CenterStart
+        SwipeToDismissBoxValue.EndToStart -> Coral to Alignment.CenterEnd
+        SwipeToDismissBoxValue.Settled -> Color.Transparent to Alignment.Center
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(12.dp))
+            .background(color)
+            .padding(horizontal = 20.dp),
+        contentAlignment = alignment
+    ) {
+        if (targetValue != SwipeToDismissBoxValue.Settled) {
+            Icon(imageVector = Icons.Filled.Close, contentDescription = "Dismiss", tint = Ink)
+        }
+    }
+}
+
+@Composable
+private fun PacketCardContent(
+    packet: Packet,
+    onAction: (Packet) -> Unit,
+    onDismiss: (Packet) -> Unit
+) {
     val accent = accentFor(packet.type)
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Surface)
     ) {

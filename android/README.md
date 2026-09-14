@@ -9,15 +9,15 @@ The real Android Studio project. This is source code meant to be opened and buil
 3. Let Gradle sync. It needs internet access to `google()` and `mavenCentral()` the first time, to pull AndroidX, Compose, and Room.
 4. Run the `app` configuration on a device or emulator running API 26+.
 
-## What Stage 2 actually contains
+## What this module actually contains
 
 | Layer | Status |
 |---|---|
 | Gradle project (AGP 8.6, Kotlin 2.0.21, Compose compiler plugin, KSP) | Real, complete |
 | `AndroidManifest.xml` — `ShareReceiverActivity` registered for `ACTION_SEND` + any audio MIME type, zero `<uses-permission>` entries | Real, complete |
 | Room schema — `VoiceNote` + `Packet` entities, `PacketDao` (including a transactional insert), `SunoDoDatabase` | Real, complete — the ViewModel does a genuine write-then-read round trip through it, not just an in-memory model |
-| Compose UI — theme (shared color tokens with `demo/sunodo_demo.html`), `HomeScreen`, `ProcessingScreen` (with device-tier badge), `ActionCardScreen`, `PacketCard`, `ErrorScreen` | Real, complete |
-| `ShareReceiverActivity` — reads the shared audio URI and its display name via the transient URI grant on the incoming Intent | Real, complete |
+| Compose UI — theme (shared color tokens with `demo/sunodo_demo.html`), `HomeScreen`, `ProcessingScreen` (with device-tier badge), `ActionCardScreen` (with an empty state once every card's dismissed), `PacketCard` (swipe-to-dismiss via Material3's `SwipeToDismissBox`, plus the original × button for anyone who doesn't swipe), `ErrorScreen` | Real, complete — `SwipeToDismissBox`'s exact parameter names have shifted across Compose Material3 releases while experimental, so treat that one piece the same as the MediaPipe integration: matches the documented shape, not checked against a live Gradle sync |
+| `ShareReceiverActivity` — reads the shared audio URI and its display name via the transient URI grant on the incoming Intent, and reports a genuine error (rather than silently substituting sample data) if the Intent didn't carry a readable audio URI | Real, complete |
 | `DeviceTierDetector` (§3.4's RAM check, cached) | Real, complete — no model file needed for this one |
 | `AudioPreprocessor.chunkBoundaries` | Real, complete, and actually verified — see "What was actually verified" |
 | `AudioPreprocessor.getDurationMs` / `decodeToPcm16` | Real Android media APIs, standard patterns, **not exercised on a device** |
@@ -37,9 +37,11 @@ Two things surfaced while wiring in the real model that are worth flagging plain
 
 ## What was actually verified
 
-Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose/MediaPipe classpath available in this sandbox) was run across every `.kt` file in the module after each stage. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one, in Stage 2: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), fixed in `share/ShareReceiverActivity.kt`. Stage 3 additionally pulled `AudioPreprocessor.chunkBoundaries` out into a standalone file with no Android dependency, compiled it, and ran it through six cases (zero duration, sub-chunk, exact-chunk-boundary, one-millisecond-over, multi-chunk, uneven-remainder) checking full coverage, no gaps, and no oversized chunk — all six passed before the logic was copied into the real file unchanged. Stage 4 re-ran the same check; every error in the new `actions/` files and their call sites was a plain unresolved-reference against the missing Android classpath (`CalendarContract`, `ClipboardManager`, `Activity`, and so on), with no type-mismatch, arity, or structural errors among them. Every compiler error in every pass was individually traced to a missing Android/AndroidX/Room/Compose/MediaPipe symbol, not a defect in this code.
+Standalone `kotlinc` compilation (no Android/AndroidX/Room/Compose/MediaPipe classpath available in this sandbox) was run across every `.kt` file in the module after each stage. Because those libraries aren't resolvable here, this can't be a real build — but it does catch genuine parser and structural errors independent of any missing classpath. It found one, in Stage 2: a doc comment mentioning the `audio/*` MIME type accidentally opened an unclosed nested block comment (Kotlin, unlike Java, nests `/* */`), fixed in `share/ShareReceiverActivity.kt`. Stage 3 additionally pulled `AudioPreprocessor.chunkBoundaries` out into a standalone file with no Android dependency, compiled it, and ran it through six cases (zero duration, sub-chunk, exact-chunk-boundary, one-millisecond-over, multi-chunk, uneven-remainder) checking full coverage, no gaps, and no oversized chunk — all six passed before the logic was copied into the real file unchanged. Stages 4 and 5 re-ran the same check each time; every remaining error in every pass was individually traced to a missing Android/AndroidX/Room/Compose/MediaPipe symbol, not a defect in this code.
 
 ## Structure
+
+Each package under `app/src/main/java/com/sunodo/app/` has its own short `README.md` — this section is just the map; open the package's own file for what's actually in it and its status.
 
 ```
 app/src/main/java/com/sunodo/app/

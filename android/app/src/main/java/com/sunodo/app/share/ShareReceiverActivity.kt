@@ -9,22 +9,23 @@ import androidx.activity.compose.setContent
 import androidx.core.content.IntentCompat
 import com.sunodo.app.actions.PacketActionHandler
 import com.sunodo.app.pipeline.VoiceInput
-import com.sunodo.app.ui.SAMPLE_TRANSCRIPT
 import com.sunodo.app.ui.SunoDoScreen
 import com.sunodo.app.ui.theme.SunoDoTheme
 
 /**
  * The one integration point with any other app — registered in
  * AndroidManifest.xml as a Share target for any audio MIME type
- * (docs/blueprint.md's ShareIntentReceiver module). Reading the shared audio's display name below
- * only uses the transient URI permission grant attached to this Intent;
- * no storage permission is declared or needed anywhere in this app.
+ * (docs/blueprint.md's ShareIntentReceiver module). Reading the shared
+ * audio's display name below only uses the transient URI permission grant
+ * attached to this Intent; no storage permission is declared or needed
+ * anywhere in this app.
  *
- * Stage 2 does not run real speech-to-text yet — that begins in Stage 3 —
- * so the extraction itself still runs on the same stub transcript as
- * "try a sample" on the home screen. What's real here is the OS integration:
- * this activity is genuinely reachable from WhatsApp's share sheet today,
- * genuinely receives the audio file, and genuinely reads its name.
+ * If the incoming Intent doesn't actually carry a readable audio URI —
+ * malformed share, revoked permission, an app that mislabels its MIME type —
+ * this reports a genuine error (Stage 5) instead of silently substituting
+ * the sample transcript, which earlier stages did and which would have
+ * quietly shown someone a stranger's Q3-report note in place of whatever
+ * they actually tried to share.
  */
 class ShareReceiverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,13 +37,17 @@ class ShareReceiverActivity : ComponentActivity() {
             null
         }
         val displayName = audioUri?.let { queryDisplayName(it) }
-        val autoStartInput = audioUri?.let { VoiceInput.Audio(it) } ?: VoiceInput.Transcript(SAMPLE_TRANSCRIPT)
 
         setContent {
             SunoDoTheme {
                 SunoDoScreen(
                     receivedLabel = displayName?.let { "Received: $it" } ?: "Received a voice note",
-                    autoStartInput = autoStartInput,
+                    autoStartInput = audioUri?.let { VoiceInput.Audio(it) },
+                    autoStartError = if (audioUri == null) {
+                        "Didn't receive an audio file with that share — try again from the app you shared it from."
+                    } else {
+                        null
+                    },
                     onPacketAction = { packet -> PacketActionHandler.handle(this, packet) }
                 )
             }
@@ -54,7 +59,7 @@ class ShareReceiverActivity : ComponentActivity() {
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (nameIndex >= 0 && cursor.moveToFirst()) cursor.getString(nameIndex) else null
         }
-    } catch (e: SecurityException) {
+    } catch (e: Exception) {
         null
     }
 }

@@ -30,4 +30,6 @@ Open [`demo/sunodo_demo.html`](demo/sunodo_demo.html) in a browser. Pick one of 
 - [x] **Stage 2** — Android project skeleton: manifest, Share-target registration, Room schema, Compose card UI (no model integration yet, packets stubbed) — see [`android/README.md`](android/README.md)
 - [x] **Stage 3** — on-device model integration: device-tier capability check, MediaPipe LLM Inference wired for both tiers, graceful stub fallback when no model file is on the device — two open questions surfaced while building this are documented in [`android/README.md`](android/README.md#open-questions-from-building-stage-3)
 - [x] **Stage 4** — `OSActionBridge`: native Calendar (`ACTION_INSERT`) / Reminder-and-Reply (`ACTION_SEND` chooser) intents wired to real packet data, with a clipboard-copy fallback if nothing on the device can handle either intent
-- [ ] **Stage 5** — polish pass: empty states, error states, swipe-to-dismiss, README per module
+- [x] **Stage 5** — polish pass: swipe-to-dismiss (Material3's `SwipeToDismissBox`, alongside the original × button), an empty state once every card's dismissed, an honest error state when a share intent has no readable audio instead of silently substituting sample data, and a short `README.md` in every package under `android/app/src/main/java/com/sunodo/app/`, `demo/`, and `docs/`
+
+That's the roadmap this repo set out to build. `android/README.md` still carries two open, unresolved technical questions from Stage 3 worth reading before building further on top of this.

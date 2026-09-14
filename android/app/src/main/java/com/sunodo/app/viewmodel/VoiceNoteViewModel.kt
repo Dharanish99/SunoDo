@@ -102,6 +102,17 @@ class VoiceNoteViewModel(
         _uiState.value = UiState.Idle
     }
 
+    /**
+     * For failures that happen before extraction even starts — e.g. the
+     * share intent didn't actually include a readable audio stream — as
+     * opposed to `process`'s catch block, which is for failures during
+     * extraction itself. Kept separate so ShareReceiverActivity can report
+     * this honestly instead of silently substituting sample data.
+     */
+    fun reportError(message: String) {
+        _uiState.value = UiState.Error(message)
+    }
+
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer<VoiceNoteViewModel> {
