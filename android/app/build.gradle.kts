@@ -61,9 +61,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // MediaPipe Tasks GenAI (LLM Inference API) — the runtime behind both
-    // PacketExtractor tiers. Version picked as a reasonable current release;
-    // bump it if Android Studio's dependency check suggests a newer one —
-    // this couldn't be verified against Google's live Maven index from the
-    // sandbox this was written in (see the root README's constraints section).
-    implementation("com.google.mediapipe:tasks-genai:0.10.24")
+    // PacketExtractor tiers. Version confirmed against Google's official
+    // Android LLM Inference guide during this project's Stage 5 follow-up
+    // fix (developers.google.com/edge/mediapipe/solutions/genai/llm_inference/android) —
+    // bump further if Android Studio's dependency check suggests a newer one.
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
 }
