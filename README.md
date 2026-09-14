@@ -29,5 +29,5 @@ Open [`demo/sunodo_demo.html`](demo/sunodo_demo.html) in a browser. Pick one of 
 - [x] **Stage 1** — repo scaffold, docs, and the Track B live demo
 - [x] **Stage 2** — Android project skeleton: manifest, Share-target registration, Room schema, Compose card UI (no model integration yet, packets stubbed) — see [`android/README.md`](android/README.md)
 - [x] **Stage 3** — on-device model integration: device-tier capability check, MediaPipe LLM Inference wired for both tiers, graceful stub fallback when no model file is on the device — two open questions surfaced while building this are documented in [`android/README.md`](android/README.md#open-questions-from-building-stage-3)
-- [ ] **Stage 4** — `OSActionBridge`: native Calendar/Reminder/Reply intents wired to real packet data
+- [x] **Stage 4** — `OSActionBridge`: native Calendar (`ACTION_INSERT`) / Reminder-and-Reply (`ACTION_SEND` chooser) intents wired to real packet data, with a clipboard-copy fallback if nothing on the device can handle either intent
 - [ ] **Stage 5** — polish pass: empty states, error states, swipe-to-dismiss, README per module

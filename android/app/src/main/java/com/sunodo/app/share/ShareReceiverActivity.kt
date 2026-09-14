@@ -4,10 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.IntentCompat
+import com.sunodo.app.actions.PacketActionHandler
 import com.sunodo.app.pipeline.VoiceInput
 import com.sunodo.app.ui.SAMPLE_TRANSCRIPT
 import com.sunodo.app.ui.SunoDoScreen
@@ -43,13 +43,7 @@ class ShareReceiverActivity : ComponentActivity() {
                 SunoDoScreen(
                     receivedLabel = displayName?.let { "Received: $it" } ?: "Received a voice note",
                     autoStartInput = autoStartInput,
-                    onPacketAction = {
-                        Toast.makeText(
-                            this,
-                            "Real Calendar / Reminder / Reply intents arrive in Stage 4 (OSActionBridge)",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    onPacketAction = { packet -> PacketActionHandler.handle(this, packet) }
                 )
             }
         }

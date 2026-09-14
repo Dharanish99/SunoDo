@@ -1,9 +1,9 @@
 package com.sunodo.app
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.sunodo.app.actions.PacketActionHandler
 import com.sunodo.app.ui.SunoDoScreen
 import com.sunodo.app.ui.theme.SunoDoTheme
 
@@ -13,13 +13,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SunoDoTheme {
                 SunoDoScreen(
-                    onPacketAction = {
-                        Toast.makeText(
-                            this,
-                            "Real Calendar / Reminder / Reply intents arrive in Stage 4 (OSActionBridge)",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    onPacketAction = { packet -> PacketActionHandler.handle(this, packet) }
                 )
             }
         }

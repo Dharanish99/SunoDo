@@ -55,7 +55,7 @@ private fun labelFor(type: PacketType): String = when (type) {
 
 private fun actionLabelFor(packet: Packet): String = when (packet.type) {
     PacketType.TASK, PacketType.DECISION -> if (packet.dueEpochDay != null) "Add to calendar" else "Save as reminder"
-    PacketType.QUESTION -> "Copy reply"
+    PacketType.QUESTION -> "Reply"
     PacketType.INFO -> "Copy"
 }
 
