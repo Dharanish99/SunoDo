@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -29,12 +30,13 @@ import com.sunodo.app.ui.theme.TextMuted
 
 /**
  * The tier badge is not cosmetic filler — it's meant to make the adaptive
- * branch in docs/blueprint.md §3.4 visible. Stage 3 passes a real DeviceTier
- * here once the actual capability check + model are wired in; until then
- * this shows no badge while the stub is running (deviceTier == null).
+ * branch in docs/blueprint.md §3.4 visible; it reflects a real device
+ * capability check regardless of whether a model file is actually present.
+ * `usingRealModel` is what tells the difference — see ModelStatusBanner's
+ * doc comment for why that distinction needs to be visible here.
  */
 @Composable
-fun ProcessingScreen(deviceTier: DeviceTier?) {
+fun ProcessingScreen(deviceTier: DeviceTier?, usingRealModel: Boolean) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -51,7 +53,7 @@ fun ProcessingScreen(deviceTier: DeviceTier?) {
                     .border(BorderStroke(1.dp, Hairline), RoundedCornerShape(100.dp))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                androidx.compose.foundation.layout.Row(
+                Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
@@ -64,6 +66,10 @@ fun ProcessingScreen(deviceTier: DeviceTier?) {
                     Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
             }
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+        if (!usingRealModel) {
+            ModelStatusBanner()
             Spacer(modifier = Modifier.height(20.dp))
         }
         CircularProgressIndicator(color = Marigold, modifier = Modifier.size(40.dp))

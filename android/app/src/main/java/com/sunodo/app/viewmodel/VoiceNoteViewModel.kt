@@ -29,12 +29,19 @@ import kotlinx.coroutines.withContext
  * state. `tier` is resolved once (DeviceTierDetector, cached) and shown in
  * ProcessingScreen immediately — it's a device capability check, not a
  * model output, so it's known before inference starts, not after.
+ *
+ * `usingRealModel` is resolved at the same time (PacketExtractorFactory) and
+ * carried into both Processing and Result states, so the UI can say plainly
+ * when it's showing the Stage-2 stub's canned example instead of a real
+ * extraction — instead of leaving a real tier badge sitting next to fake
+ * output with no distinction between the two.
  */
 class VoiceNoteViewModel(
     private val appContext: Context,
     private val packetDao: PacketDao,
     private val extractor: PacketExtractor,
-    private val tier: DeviceTier
+    private val tier: DeviceTier,
+    private val usingRealModel: Boolean
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
@@ -42,7 +49,7 @@ class VoiceNoteViewModel(
 
     fun process(input: VoiceInput, sourceApp: String = "WhatsApp") {
         viewModelScope.launch {
-            _uiState.value = UiState.Processing(deviceTier = tier)
+            _uiState.value = UiState.Processing(deviceTier = tier, usingRealModel = usingRealModel)
             try {
                 val durationSec = when (input) {
                     is VoiceInput.Audio -> withContext(Dispatchers.IO) {
@@ -78,7 +85,8 @@ class VoiceNoteViewModel(
                 _uiState.value = UiState.Result(
                     voiceNoteId = voiceNoteId,
                     tldr = result.tldr,
-                    packets = savedPackets
+                    packets = savedPackets,
+                    usingRealModel = usingRealModel
                 )
             } catch (e: Exception) {
                 _uiState.value = UiState.Error(
@@ -117,11 +125,13 @@ class VoiceNoteViewModel(
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer<VoiceNoteViewModel> {
                 val appContext = context.applicationContext
+                val selection = PacketExtractorFactory.create(appContext)
                 VoiceNoteViewModel(
                     appContext = appContext,
                     packetDao = SunoDoDatabase.getInstance(appContext).packetDao(),
-                    extractor = PacketExtractorFactory.create(appContext),
-                    tier = DeviceTierDetector.detect(appContext)
+                    extractor = selection.extractor,
+                    tier = DeviceTierDetector.detect(appContext),
+                    usingRealModel = selection.usingRealModel
                 )
             }
         }

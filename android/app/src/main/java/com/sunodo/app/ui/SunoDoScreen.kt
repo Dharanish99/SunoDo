@@ -42,10 +42,11 @@ fun SunoDoScreen(
             receivedLabel = receivedLabel,
             onTrySample = { viewModel.process(VoiceInput.Transcript(SAMPLE_TRANSCRIPT)) }
         )
-        is UiState.Processing -> ProcessingScreen(deviceTier = state.deviceTier)
+        is UiState.Processing -> ProcessingScreen(deviceTier = state.deviceTier, usingRealModel = state.usingRealModel)
         is UiState.Result -> ActionCardScreen(
             tldr = state.tldr,
             packets = state.packets,
+            usingRealModel = state.usingRealModel,
             onAction = onPacketAction,
             onDismiss = { packet -> viewModel.dismiss(packet.id) },
             onReset = { viewModel.reset() }

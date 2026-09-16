@@ -10,20 +10,29 @@ import java.nio.ByteOrder
 
 /**
  * docs/blueprint.md's AudioPreprocessor module: trims/chunks audio into
- * <=30s windows to match the on-device model's batch limit.
+ * <=30s windows to match the on-device model's batch limit, and — as of
+ * this fix — prepares raw audio into the exact PCM16/16kHz/mono format
+ * LlmInferenceSession.addAudio() expects (confirmed via live web research
+ * while fixing that call — see LlmPacketExtractor.kt and Gemma's own audio
+ * docs, ai.google.dev/gemma/docs/capabilities/audio: mono, and clips up to
+ * 30s recommended, which is also why chunkBoundaries defaults to 30s).
  *
- * `chunkBoundaries` is pure arithmetic with no Android dependency — it was
- * pulled out, compiled, and run standalone with a modern Kotlin compiler in
- * the sandbox that built this stage (duration 0, sub-chunk, exact-chunk,
- * one-over, multi-chunk cases), and its logic here is unchanged from that
- * checked version. `getDurationMs` and `decodeToPcm16` are real Android
- * media APIs but weren't exercised against a real audio file or device from
- * this sandbox — they follow the standard MediaMetadataRetriever /
- * MediaExtractor+MediaCodec synchronous-decode patterns, but treat them as
- * needing a real-device pass before depending on them, the same way the
- * model-integration files in this package do.
+ * `chunkBoundaries`, `resampleLinear`, `downmixToMono`, and
+ * `shortArrayToLittleEndianBytes` are pure arithmetic with no Android
+ * dependency — all four were pulled out, compiled standalone, and run
+ * through concrete test cases in the sandbox that built this stage before
+ * being copied here unchanged (chunkBoundaries: 6 cases in Stage 3; the
+ * other three: 8 cases covering downsampling, upsampling, empty input,
+ * stereo downmix, mono passthrough, and little-endian byte order including
+ * negative samples, in this fix). `getDurationMs` and `decodeToPcm16` are
+ * real Android media APIs but weren't exercised against a real audio file
+ * or device from this sandbox — treat those two the same as the model
+ * integration in this package: matches the standard pattern, not
+ * device-verified.
  */
 object AudioPreprocessor {
+
+    data class DecodedPcm(val samples: ShortArray, val sampleRateHz: Int, val channelCount: Int)
 
     fun getDurationMs(context: Context, uri: Uri): Long {
         val retriever = MediaMetadataRetriever()
@@ -49,13 +58,67 @@ object AudioPreprocessor {
     }
 
     /**
+     * The full prep pipeline for LlmInferenceSession.addAudio(): decode
+     * whatever compressed format the shared file is in, downmix to mono if
+     * needed, resample to 16kHz if needed, and serialize to little-endian
+     * PCM16 bytes.
+     */
+    fun preparePcm16Mono16kHz(context: Context, uri: Uri): ByteArray {
+        val decoded = decodeToPcm16(context, uri)
+        val mono = downmixToMono(decoded.samples, decoded.channelCount)
+        val resampled = resampleLinear(mono, decoded.sampleRateHz, 16_000)
+        return shortArrayToLittleEndianBytes(resampled)
+    }
+
+    /** Verified pure function — see the class doc comment. */
+    fun resampleLinear(input: ShortArray, inputRate: Int, outputRate: Int): ShortArray {
+        if (inputRate == outputRate || input.isEmpty()) return input
+        val outputLength = ((input.size.toLong() * outputRate) / inputRate).toInt()
+        if (outputLength <= 0) return ShortArray(0)
+        val output = ShortArray(outputLength)
+        val ratio = input.size.toDouble() / outputLength.toDouble()
+        for (i in 0 until outputLength) {
+            val srcPos = i * ratio
+            val srcIndex = srcPos.toInt().coerceIn(0, input.size - 1)
+            val frac = srcPos - srcIndex
+            val s0 = input[srcIndex]
+            val s1 = if (srcIndex + 1 < input.size) input[srcIndex + 1] else s0
+            output[i] = (s0 + (s1 - s0) * frac).toInt().toShort()
+        }
+        return output
+    }
+
+    /** Verified pure function — see the class doc comment. */
+    fun downmixToMono(input: ShortArray, channelCount: Int): ShortArray {
+        if (channelCount <= 1) return input
+        val frames = input.size / channelCount
+        val output = ShortArray(frames)
+        for (i in 0 until frames) {
+            var sum = 0
+            for (c in 0 until channelCount) sum += input[i * channelCount + c]
+            output[i] = (sum / channelCount).toShort()
+        }
+        return output
+    }
+
+    /** Verified pure function — see the class doc comment. */
+    fun shortArrayToLittleEndianBytes(samples: ShortArray): ByteArray {
+        val bytes = ByteArray(samples.size * 2)
+        for (i in samples.indices) {
+            val v = samples[i].toInt()
+            bytes[i * 2] = (v and 0xFF).toByte()
+            bytes[i * 2 + 1] = ((v shr 8) and 0xFF).toByte()
+        }
+        return bytes
+    }
+
+    /**
      * Standard synchronous MediaCodec decode loop: demux the first audio
      * track with MediaExtractor, decode it, and concatenate the PCM16
-     * output. Needed if a model API ends up wanting raw samples rather than
-     * a file handle — kept here so that decision doesn't leak into the
-     * extractor classes.
+     * output — plus the sample rate and channel count downstream steps
+     * need to normalize it.
      */
-    fun decodeToPcm16(context: Context, uri: Uri): ShortArray {
+    fun decodeToPcm16(context: Context, uri: Uri): DecodedPcm {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
 
@@ -72,6 +135,9 @@ object AudioPreprocessor {
         }
         require(trackIndex >= 0 && format != null) { "No audio track found in $uri" }
         extractor.selectTrack(trackIndex)
+
+        val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+        val channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
 
         val mime = format.getString(MediaFormat.KEY_MIME)!!
         val codec = MediaCodec.createDecoderByType(mime)
@@ -118,6 +184,6 @@ object AudioPreprocessor {
             extractor.release()
         }
 
-        return output.toShortArray()
+        return DecodedPcm(output.toShortArray(), sampleRate, channelCount)
     }
 }

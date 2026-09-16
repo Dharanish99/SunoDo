@@ -28,12 +28,17 @@ import com.sunodo.app.ui.theme.TextMuted
 fun ActionCardScreen(
     tldr: String,
     packets: List<Packet>,
+    usingRealModel: Boolean,
     onAction: (Packet) -> Unit,
     onDismiss: (Packet) -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().padding(20.dp)) {
+        if (!usingRealModel) {
+            ModelStatusBanner(modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(14.dp))
+        }
         Text(
             text = "TL;DR",
             style = MaterialTheme.typography.bodySmall,
