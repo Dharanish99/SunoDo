@@ -36,7 +36,7 @@ object OSActionBridge {
             putExtra(CalendarContract.Events.TITLE, title)
             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginMillis)
             putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
-            putExtra(CalendarContract.EXTRA_ALL_DAY, true)
+            putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
         }
         return startActivitySafely(context, intent)
     }

@@ -46,15 +46,13 @@ class LlmPacketExtractor(
     }
 
     private suspend fun extractFromAudio(uri: Uri): ExtractionResult {
-        val raw = runInference { session ->
-            session.addQueryChunk(PacketPrompt.audioInstruction())
-            // TODO(verify): confirm the real method/signature for feeding audio
-            // into an LlmInferenceSession against current MediaPipe docs — see
-            // this file's class-level comment. Best-effort placeholder below:
-            val pcm = AudioPreprocessor.decodeToPcm16(context, uri)
-            session.addAudioClip(pcm)
-        }
-        return PacketJsonParser.parse(raw, tier)
+        // MediaPipe Tasks GenAI currently does not have an audio ingestion API (`addAudioClip`).
+        // Once audio ingestion (LiteRT-LM / MediaPipe) is released, pass PCM from AudioPreprocessor:
+        // AudioPreprocessor.decodeToPcm16(context, uri)
+        throw UnsupportedOperationException(
+            "Direct audio ingestion is not supported by the current MediaPipe Tasks GenAI version. " +
+                "Use VoiceInput.Transcript or wait for LiteRT audio ingestion API."
+        )
     }
 
     private suspend fun runInference(feed: (LlmInferenceSession) -> Unit): String =
