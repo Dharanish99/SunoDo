@@ -1,13 +1,15 @@
-# SunoDo — Android app (Track A)
+# SunoDo — Android app
 
-The real Android Studio project. This is source code meant to be opened and built in Android Studio — it has **not** been compiled by the assistant that wrote it, because this sandbox has no route to Google's Maven repository (`google()`) or an Android SDK/emulator. What it does have is a modern Kotlin compiler (2.0.21, pulled from GitHub's release assets), which was used to check every file in this module for real syntax and structural errors with everything outside the missing Android/Compose/Room classpath filtered out. One genuine bug was caught and fixed that way — see "What was actually verified" below.
+**This is the iQOO Hackathon 2026 submission itself** — see the root [`README.md`](../README.md) and [`SUBMISSION.md`](../SUBMISSION.md) for the pitch and rubric mapping. What follows is the technical detail: what's built, what's verified and how, and what's still open.
+
+This is source code meant to be opened and built in Android Studio — it has **not** been compiled by the assistant that wrote it, because this sandbox has no route to Google's Maven repository (`google()`) or an Android SDK/emulator. What it does have is a modern Kotlin compiler (2.0.21, pulled from GitHub's release assets), which was used to check every file in this module for real syntax and structural errors with everything outside the missing Android/Compose/Room classpath filtered out. Multiple genuine bugs were caught and fixed that way — see "What was actually verified" below.
 
 ## How to open it
 
 1. Android Studio (Ladybird/2024.2 or newer recommended for Kotlin 2.0 + the Compose compiler Gradle plugin).
 2. Open the `android/` folder as a project — not the repo root.
 3. Let Gradle sync. It needs internet access to `google()` and `mavenCentral()` the first time, to pull AndroidX, Compose, and Room.
-4. Run the `app` configuration on a device or emulator running API 26+.
+4. Run the `app` configuration on a **physical device** running API 26+. Google's own documentation states the MediaPipe LLM Inference API doesn't reliably support emulators — for the on-device model path specifically, an emulator isn't a safe stand-in for the real thing.
 
 ## What this module actually contains
 
