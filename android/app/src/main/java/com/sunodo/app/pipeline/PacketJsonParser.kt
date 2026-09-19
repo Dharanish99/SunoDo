@@ -28,7 +28,8 @@ object PacketJsonParser {
         val packets = mutableListOf<ExtractedPacket>()
         for (i in 0 until packetsJson.length()) {
             val p = packetsJson.optJSONObject(i) ?: continue
-            val content = p.optString("content").ifBlank { continue }
+            val content = p.optString("content")
+            if (content.isBlank()) continue
 
             val type = when (p.optString("type", "info").lowercase()) {
                 "task" -> PacketType.TASK
